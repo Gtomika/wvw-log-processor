@@ -17,6 +17,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
 import java.util.Properties;
+import java.util.Set;
 import java.util.function.Function;
 
 @Service
@@ -82,7 +83,7 @@ public class SettingsService {
     private void addDefaultProperties() {
         addSetting(Setting.SOURCE_FOLDER, NO_PATH_SET);
         addSetting(Setting.SOURCE_DELETE_SOURCES, false);
-        addSetting(Setting.SOURCE_LOG_EXTENSIONS, List.of(LogExtension.EVTC, LogExtension.ZEVTC));
+        addSetting(Setting.SOURCE_LOG_EXTENSIONS, Set.of(LogExtension.EVTC, LogExtension.ZEVTC));
         addSetting(Setting.ENGINE_JSON_GENERATOR, JsonGenerator.DPS_REPORT_API);
         addSetting(Setting.ENGINE_DPS_REPORT_SAVE_PERMALINKS, true);
         addSetting(Setting.TARGET_FOLDER, NO_PATH_SET);

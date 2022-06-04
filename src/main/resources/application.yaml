@@ -3,3 +3,6 @@ logging:
     root: INFO
     com:
       gaspar: ${LOG_LEVEL:INFO}
+dps:
+  report:
+    api: https://dps.report
