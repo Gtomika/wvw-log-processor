@@ -1,6 +1,6 @@
 package com.gaspar.logprocessor.gui.panel;
 
-import com.gaspar.logprocessor.gui.GuiConstants;
+import com.gaspar.logprocessor.constants.GuiConstants;
 import org.springframework.stereotype.Component;
 
 import javax.annotation.PostConstruct;

@@ -1,4 +1,4 @@
-package com.gaspar.logprocessor.gui;
+package com.gaspar.logprocessor.constants;
 
 import java.awt.*;
 

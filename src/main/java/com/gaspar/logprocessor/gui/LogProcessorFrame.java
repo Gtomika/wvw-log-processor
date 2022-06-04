@@ -1,6 +1,8 @@
 package com.gaspar.logprocessor.gui;
 
+import com.gaspar.logprocessor.constants.GuiConstants;
 import com.gaspar.logprocessor.gui.panel.RootPanel;
+import com.gaspar.logprocessor.service.SettingsService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -16,6 +18,7 @@ import java.awt.event.WindowEvent;
 public class LogProcessorFrame extends JFrame {
 
     private final RootPanel rootPanel;
+    private final SettingsService settingsService;
 
     @PostConstruct
     public void init() {
@@ -37,6 +40,7 @@ public class LogProcessorFrame extends JFrame {
             @Override
             public void windowClosing(WindowEvent e) {
                 log.info("Main window is being closed.");
+                settingsService.saveSettings();
                 super.windowClosing(e);
             }
         });
