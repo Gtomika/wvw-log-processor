@@ -38,12 +38,12 @@ public class EnginePanel extends JPanel {
         JsonGenerator generator = settingsService.getSetting(Setting.ENGINE_JSON_GENERATOR, JsonGenerator::valueOf);
         switch (generator) {
             case LOCAL_ELITE_INSIGHT:
-                dpsReportRadio.setSelected(true);
-                onDpsReportClicked(true);
-                break;
-            case DPS_REPORT_API:
                 elInsRadio.setSelected(true);
                 onElInsClicked(true);
+                break;
+            case DPS_REPORT_API:
+                dpsReportRadio.setSelected(true);
+                onDpsReportClicked(true);
                 break;
         }
     }

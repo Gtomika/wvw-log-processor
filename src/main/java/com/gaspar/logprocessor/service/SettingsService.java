@@ -26,7 +26,7 @@ import java.util.stream.Collectors;
 @Slf4j
 public class SettingsService {
 
-    public static final String NO_PATH_SET = "-";
+    public static final String NO_PATH_SET = "Nincs megadva";
 
     private final Path settingFile = Paths.get(
             FileSystemView.getFileSystemView().getDefaultDirectory().getPath(),

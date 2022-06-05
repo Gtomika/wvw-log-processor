@@ -11,6 +11,7 @@ import org.springframework.stereotype.Component;
 import javax.annotation.PostConstruct;
 import javax.swing.*;
 import java.awt.*;
+import java.io.IOException;
 import java.util.function.Function;
 
 @Component
@@ -29,15 +30,20 @@ public class TargetPanel extends JPanel {
 
     private void addTargetFolderSelector() {
         JLabel label = new JLabel("Eredményfájlok mappája");
+        label.setAlignmentX(java.awt.Component.LEFT_ALIGNMENT);
         add(label);
 
         String targetPath = settingsService.getSetting(Setting.TARGET_FOLDER, Function.identity());
         JLabel folderLabel = new JLabel(targetPath);
+        folderLabel.setAlignmentX(java.awt.Component.LEFT_ALIGNMENT);
         folderLabel.setBorder(BorderFactory.createCompoundBorder(
                 BorderFactory.createCompoundBorder(GuiConstants.BORDER_MARGIN, BorderFactory.createLineBorder(Color.black, 1)),
                 GuiConstants.BORDER_MARGIN
         ));
         add(folderLabel);
+
+        JPanel buttons = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        buttons.setAlignmentX(java.awt.Component.LEFT_ALIGNMENT);
 
         JButton browse = new JButton("Tallózás");
         browse.addActionListener(e -> {
@@ -48,7 +54,22 @@ public class TargetPanel extends JPanel {
                 settingsService.addSetting(Setting.TARGET_FOLDER, path);
             }
         });
-        add(browse);
+        buttons.add(browse);
+
+        JButton show = new JButton("Mappa megnyitása");
+        show.addActionListener(e -> {
+            String targetPathSelected = settingsService.getSetting(Setting.TARGET_FOLDER, Function.identity());
+            if(!targetPathSelected.equals(SettingsService.NO_PATH_SET)) {
+                try {
+                    Runtime.getRuntime().exec("explorer.exe /select," + targetPathSelected);
+                } catch (IOException exc) {
+                    log.error("Failed to open folder.", exc);
+                }
+            }
+        });
+        buttons.add(show);
+
+        add(buttons);
     }
 
 }

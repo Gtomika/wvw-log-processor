@@ -1,8 +1,11 @@
 package com.gaspar.logprocessor.service;
 
+import com.gaspar.logprocessor.constants.GuiConstants;
 import com.gaspar.logprocessor.constants.LogExtension;
 import com.gaspar.logprocessor.constants.Setting;
 import com.gaspar.logprocessor.exception.SettingsException;
+import com.gaspar.logprocessor.gui.panel.BottomBarPanel;
+import com.gaspar.logprocessor.runnable.LogProcessorRunnable;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -28,6 +31,10 @@ public class LogProcessorService {
 
     private final SettingsService settingsService;
     private final JsonService jsonService;
+    private final BottomBarPanel bottomBarPanel;
+
+    private int logAmount;
+    private int processedAmount;
 
     public void processLogs() {
         try {
@@ -55,22 +62,44 @@ public class LogProcessorService {
                     "Nincsenek logok", JOptionPane.WARNING_MESSAGE);
             return;
         }
-        log.info("Found {} logs, starting processing...", logs.size());
+        logAmount = logs.size();
+        log.info("Found {} logs, starting processing...", logAmount);
 
-        //launch background threads
-        int numThreads = Math.min(Runtime.getRuntime().availableProcessors(), logs.size());
-        log.info("Will use {} threads to process logs...", numThreads);
+        new Thread(() -> {
+            //launch background threads
+            int numThreads = Math.min(Runtime.getRuntime().availableProcessors(), logAmount);
+            log.info("Will use {} threads to process logs...", numThreads);
 
-        ExecutorService executor = Executors.newFixedThreadPool(numThreads);
+            bottomBarPanel.getProgressBar().setMinimum(0);
+            bottomBarPanel.getProgressBar().setMaximum(logAmount);
+            bottomBarPanel.getProgressBar().setValue(0);
+            bottomBarPanel.getProgressBar().setString(getProgressBarString(0));
 
-        executor.shutdown();
-        boolean finished = executor.awaitTermination(1, TimeUnit.DAYS);
-        if(finished) {
-            log.info("All threads finished, executor stopped, displaying results...");
-        } else {
-            log.warn("Executor failed to finish in time!");
-            throw new RuntimeException("Executor timed out.");
-        }
+            processedAmount = 0;
+            ExecutorService executor = Executors.newFixedThreadPool(numThreads);
+            for(Path logFile: logs) {
+                var task = new LogProcessorRunnable(logFile, this, jsonService);
+                executor.execute(task);
+            }
+
+            executor.shutdown();
+            boolean finished = false;
+            try {
+                finished = executor.awaitTermination(1, TimeUnit.DAYS);
+            } catch (InterruptedException e) {
+                log.error("Interrupted", e);
+            }
+            if(finished) {
+                SwingUtilities.invokeLater(() -> {
+                    bottomBarPanel.getProgressBar().setValue(0);
+                    bottomBarPanel.getProgressBar().setString("Nincs aktív feldolgozás");
+                });
+                onAllTasksFinished();
+            } else {
+                log.warn("Executor failed to finish in time!");
+                throw new RuntimeException("Executor timed out.");
+            }
+        }).start();
     }
 
     private List<Path> listLogFiles() throws IOException {
@@ -97,6 +126,56 @@ public class LogProcessorService {
             }
         }
         return false;
+    }
+
+    public synchronized void onTaskFinished() {
+        log.debug("Invoking 'onTaskFinished'...");
+        processedAmount++;
+        bottomBarPanel.getProgressBar().setValue(processedAmount);
+        bottomBarPanel.getProgressBar().setString(getProgressBarString(processedAmount));
+        bottomBarPanel.getProgressBar().revalidate();
+        bottomBarPanel.getProgressBar().repaint();
+        bottomBarPanel.revalidate();
+        bottomBarPanel.repaint();
+    }
+
+    private void onAllTasksFinished() {
+        log.info("All threads finished, executor stopped.");
+
+        final JDialog resultDialog = new JDialog();
+        resultDialog.setTitle("A feldolgozás befejeződött");
+
+        JPanel resultPanel = new JPanel();
+        resultPanel.setBorder(GuiConstants.BORDER_MARGIN);
+
+        JPanel buttons = new JPanel();
+        JButton ok = new JButton("OK");
+        ok.addActionListener(e -> resultDialog.dispose());
+        buttons.add(ok);
+        JButton browse = new JButton("Eredménymappa megnyitása");
+        browse.addActionListener(e -> {
+            String targetFolder = settingsService.getSetting(Setting.TARGET_FOLDER, Function.identity());
+            try {
+                resultDialog.dispose();
+                Runtime.getRuntime().exec("explorer.exe /select," + targetFolder);
+            } catch (IOException exc) {
+                log.error("Failed to open folder.", exc);
+            }
+        });
+        buttons.add(browse);
+        resultPanel.add(buttons);
+
+        JOptionPane resultPane = new JOptionPane(resultPanel, JOptionPane.PLAIN_MESSAGE, JOptionPane.DEFAULT_OPTION,
+                null, new Object[]{}, null);
+        resultDialog.setContentPane(resultPane);
+        resultDialog.pack();
+        resultDialog.setLocationRelativeTo(null);
+        resultDialog.setAlwaysOnTop(true);
+        resultDialog.setVisible(true);
+    }
+
+    private String getProgressBarString(int count) {
+        return count + "/" + logAmount + " log feldolgozva...";
     }
 
 }

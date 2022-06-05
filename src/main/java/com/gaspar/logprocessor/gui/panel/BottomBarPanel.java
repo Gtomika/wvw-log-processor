@@ -2,7 +2,8 @@ package com.gaspar.logprocessor.gui.panel;
 
 import com.gaspar.logprocessor.constants.GuiConstants;
 import com.gaspar.logprocessor.service.LogProcessorService;
-import lombok.RequiredArgsConstructor;
+import lombok.Getter;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Component;
 
 import javax.annotation.PostConstruct;
@@ -10,18 +11,22 @@ import javax.swing.*;
 import java.awt.*;
 
 @Component
-@RequiredArgsConstructor
 public class BottomBarPanel extends JPanel {
 
     private final LogProcessorService logProcessorService;
 
-    private BorderLayout layout;
+    @Getter
+    private JProgressBar progressBar;
+
+    public BottomBarPanel(@Lazy LogProcessorService logProcessorService) {
+        this.logProcessorService = logProcessorService;
+    }
 
     @PostConstruct
     public void init() {
-        layout = new BorderLayout();
-        setLayout(layout);
+        setLayout(new BorderLayout());
         addProcessButton();
+        addProgressBar();
     }
 
     private void addProcessButton() {
@@ -31,6 +36,16 @@ public class BottomBarPanel extends JPanel {
         JPanel wrapper = new JPanel();
         wrapper.add(processButton);
         add(wrapper, BorderLayout.LINE_END);
+    }
+
+    private void addProgressBar() {
+        JPanel wrapper = new JPanel();
+        wrapper.setBorder(GuiConstants.BORDER_MARGIN);
+        progressBar = new JProgressBar();
+        progressBar.setString("Nincs aktív feldogozás");
+        progressBar.setStringPainted(true);
+        wrapper.add(progressBar);
+        add(wrapper, BorderLayout.LINE_START);
     }
 
 }

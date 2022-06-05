@@ -22,6 +22,11 @@ public class LogProcessorFrame extends JFrame {
 
     @PostConstruct
     public void init() {
+        try {
+            UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
+        } catch (Exception e) {
+            log.error("Look and feel is not available.");
+        }
         setTitle("WvW Log Feldolgozó");
         setSize(GuiConstants.FRAME_DEFAULT_SIZE);
         setMaximumSize(GuiConstants.FRAME_DEFAULT_SIZE);
