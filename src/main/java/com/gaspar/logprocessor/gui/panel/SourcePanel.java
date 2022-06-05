@@ -4,7 +4,7 @@ import com.gaspar.logprocessor.constants.GuiConstants;
 import com.gaspar.logprocessor.constants.LogExtension;
 import com.gaspar.logprocessor.constants.Setting;
 import com.gaspar.logprocessor.service.SettingsService;
-import com.gaspar.logprocessor.utils.FolderSelectorUtils;
+import com.gaspar.logprocessor.utils.PathSelectorUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -57,7 +57,7 @@ public class SourcePanel extends JPanel {
 
         JButton browse = new JButton("Tallózás");
         browse.addActionListener(e -> {
-            String path = FolderSelectorUtils.selectFolder();
+            String path = PathSelectorUtils.selectFolder();
             if(path != null) {
                 log.debug("User selected new source folder: {}", path);
                 folderLabel.setText(path);
@@ -82,7 +82,7 @@ public class SourcePanel extends JPanel {
         JLabel label = new JLabel("Log fájl kiterjesztések");
         add(label);
 
-        var initSelectedExtensions = settingsService.getSetting(Setting.SOURCE_LOG_EXTENSIONS, extensionConverter);
+        var initSelectedExtensions = settingsService.getSetting(Setting.SOURCE_LOG_EXTENSIONS, SettingsService.EXTENSION_CONVERTER);
 
         for(LogExtension extension: LogExtension.values()) {
             JCheckBox checkBox = new JCheckBox();
@@ -91,7 +91,7 @@ public class SourcePanel extends JPanel {
             checkBox.addActionListener(e -> {
                 boolean include = checkBox.isSelected();
                 log.debug("Log file extension '{}' included: {}", localExtension.getExtension(), include);
-                var selectedExtensions = settingsService.getSetting(Setting.SOURCE_LOG_EXTENSIONS, extensionConverter);
+                var selectedExtensions = settingsService.getSetting(Setting.SOURCE_LOG_EXTENSIONS, SettingsService.EXTENSION_CONVERTER);
                 if(include) {
                     selectedExtensions.add(localExtension);
                 } else {
@@ -105,11 +105,6 @@ public class SourcePanel extends JPanel {
         }
     }
 
-    private static Function<String, Set<LogExtension>> extensionConverter = s -> {
-        s = s.replace("[", "").replace("]", "").replace(" ", "");
-        return Arrays.stream(s.split(","))
-                .map(LogExtension::valueOf)
-                .collect(Collectors.toSet());
-    };
+
 
 }

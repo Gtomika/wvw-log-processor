@@ -30,6 +30,11 @@ public enum Setting {
     ENGINE_DPS_REPORT_SAVE_PERMALINKS,
 
     /**
+     * String, path to local ELite Insight exe.
+     */
+    ENGINE_ELITE_INSIGHT_PATH,
+
+    /**
      * String, path to the folder where results will be placed.
      */
     TARGET_FOLDER,
