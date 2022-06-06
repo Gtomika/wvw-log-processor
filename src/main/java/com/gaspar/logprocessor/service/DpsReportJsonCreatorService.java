@@ -2,6 +2,7 @@ package com.gaspar.logprocessor.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.gaspar.logprocessor.model.UploadContentResponse;
+import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import okhttp3.*;
@@ -12,6 +13,8 @@ import org.springframework.stereotype.Service;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
@@ -26,12 +29,17 @@ public class DpsReportJsonCreatorService {
     @Value("${dps.report.api}")
     private String dpsReportApi;
 
+    //stateful service
+    @Getter
+    private final List<String> permalinks = new ArrayList<>();
+
     //must upload log first, then JSON will be generated
     //async
     public void uploadLogToDpsReport(Path logFile, BiConsumer<String, Path> onSuccess, Consumer<Path> onFail) {
         byte[] bytes = null;
         try {
             bytes = Files.readAllBytes(logFile);
+            log.debug("Bytes of log {} have been read into memory", logFile);
         } catch (IOException e) {
             log.error("Failed to read bytes of log file: {}", logFile, e);
             onFail.accept(logFile);
@@ -47,6 +55,7 @@ public class DpsReportJsonCreatorService {
                 .header("content-type", "multipart/form-data")
                 .build();
 
+        log.debug("Sending request to API: {}", request);
         client.newCall(request).enqueue(new Callback() {
             @Override
             public void onFailure(@NotNull Call call, @NotNull IOException e) {
@@ -59,6 +68,7 @@ public class DpsReportJsonCreatorService {
                 if(response.isSuccessful()) {
                     UploadContentResponse uploadContentResponse = mapper.readValue(response.body().string(), UploadContentResponse.class);
                     log.debug("Successfully uploaded log '{}' to dps.report, permalink is: {}", logFile, uploadContentResponse.getPermalink());
+                    savePermalink(uploadContentResponse.getPermalink());
                     getJsonFromDpsReport(logFile, uploadContentResponse, onSuccess, onFail);
                 } else {
                     log.error("dps.report API gave unsuccessful response {} for log file: {}", response, logFile);
@@ -66,6 +76,10 @@ public class DpsReportJsonCreatorService {
                 }
             }
         });
+    }
+
+    private synchronized void savePermalink(String permalink) {
+        permalinks.add(permalink);
     }
 
     //async

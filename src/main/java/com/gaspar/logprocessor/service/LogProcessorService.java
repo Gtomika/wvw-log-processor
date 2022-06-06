@@ -1,6 +1,7 @@
 package com.gaspar.logprocessor.service;
 
 import com.gaspar.logprocessor.constants.GuiConstants;
+import com.gaspar.logprocessor.constants.JsonGenerator;
 import com.gaspar.logprocessor.constants.LogExtension;
 import com.gaspar.logprocessor.constants.Setting;
 import com.gaspar.logprocessor.exception.SettingsException;
@@ -11,6 +12,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import javax.swing.*;
+import java.awt.*;
 import java.io.IOException;
 import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
@@ -24,6 +26,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 
+//stateful service!
 @Service
 @Slf4j
 @RequiredArgsConstructor
@@ -32,13 +35,24 @@ public class LogProcessorService {
     private final SettingsService settingsService;
     private final JsonService jsonService;
     private final BottomBarPanel bottomBarPanel;
+    //to access permalinks (if needed)
+    private final DpsReportJsonCreatorService dpsReportJsonCreatorService;
 
     private int logAmount;
     private int processedAmount;
+    private int failedAmount;
+    private boolean inProgress;
 
     public void processLogs() {
         try {
-            processLogsInternal();
+            if(inProgress) {
+                JOptionPane.showMessageDialog(null, "Már folyamatban van egy feldolgozás.", "Hiba", JOptionPane.ERROR_MESSAGE);
+            } else {
+                inProgress = true;
+                //clear in any case
+                dpsReportJsonCreatorService.getPermalinks().clear();
+                processLogsInternal();
+            }
         } catch (Exception e) {
             log.error("Unexpected exception while processing logs!", e);
             JOptionPane.showMessageDialog(null, "Hiba a log fájlok feldolgozásakor: " + e.getMessage(),
@@ -76,6 +90,7 @@ public class LogProcessorService {
             bottomBarPanel.getProgressBar().setString(getProgressBarString(0));
 
             processedAmount = 0;
+            failedAmount = 0;
             ExecutorService executor = Executors.newFixedThreadPool(numThreads);
             for(Path logFile: logs) {
                 var task = new LogProcessorRunnable(logFile, this, jsonService);
@@ -129,10 +144,19 @@ public class LogProcessorService {
     }
 
     public synchronized void onTaskFinished() {
-        log.debug("Invoking 'onTaskFinished'...");
         processedAmount++;
-        bottomBarPanel.getProgressBar().setValue(processedAmount);
-        bottomBarPanel.getProgressBar().setString(getProgressBarString(processedAmount));
+        bottomBarPanel.getProgressBar().setValue(processedAmount + failedAmount);
+        bottomBarPanel.getProgressBar().setString(getProgressBarString(processedAmount + failedAmount));
+        bottomBarPanel.getProgressBar().revalidate();
+        bottomBarPanel.getProgressBar().repaint();
+        bottomBarPanel.revalidate();
+        bottomBarPanel.repaint();
+    }
+
+    public synchronized void onTaskFailed() {
+        failedAmount++;
+        bottomBarPanel.getProgressBar().setValue(processedAmount + failedAmount);
+        bottomBarPanel.getProgressBar().setString(getProgressBarString(processedAmount + failedAmount));
         bottomBarPanel.getProgressBar().revalidate();
         bottomBarPanel.getProgressBar().repaint();
         bottomBarPanel.revalidate();
@@ -142,11 +166,18 @@ public class LogProcessorService {
     private void onAllTasksFinished() {
         log.info("All threads finished, executor stopped.");
 
+        writePermalinksIfNeeded();
+
         final JDialog resultDialog = new JDialog();
         resultDialog.setTitle("A feldolgozás befejeződött");
 
         JPanel resultPanel = new JPanel();
+        resultPanel.setLayout(new BoxLayout(resultPanel, BoxLayout.Y_AXIS));
         resultPanel.setBorder(GuiConstants.BORDER_MARGIN);
+
+        JLabel label = new JLabel(processedAmount + "/" + logAmount + " log sikeresen feldolgozva.");
+        label.setAlignmentX(Component.CENTER_ALIGNMENT);
+        resultPanel.add(label);
 
         JPanel buttons = new JPanel();
         JButton ok = new JButton("OK");
@@ -172,6 +203,31 @@ public class LogProcessorService {
         resultDialog.setLocationRelativeTo(null);
         resultDialog.setAlwaysOnTop(true);
         resultDialog.setVisible(true);
+        resultDialog.setModal(true);
+
+        inProgress = false;
+    }
+
+    private void writePermalinksIfNeeded() {
+        JsonGenerator generator = settingsService.getSetting(Setting.ENGINE_JSON_GENERATOR, JsonGenerator::valueOf);
+        boolean savePermalinks = settingsService.getSetting(Setting.ENGINE_DPS_REPORT_SAVE_PERMALINKS, Boolean::valueOf);
+        if(generator == JsonGenerator.DPS_REPORT_API && savePermalinks) {
+            String targetFolder = settingsService.getSetting(Setting.TARGET_FOLDER, Function.identity());
+            Path permalinkPath = Paths.get(targetFolder, "permalinks.txt");
+            try {
+                Files.deleteIfExists(permalinkPath);
+                Files.createFile(permalinkPath);
+                String permalinkString = String.join("\n", dpsReportJsonCreatorService.getPermalinks());
+                Files.writeString(permalinkPath, permalinkString);
+                log.info("Saved permalinks to file: {}", permalinkPath);
+            } catch (Exception e) {
+                log.error("Failed to write permalinks to file", e);
+                JOptionPane.showMessageDialog(null, "Nem sikerült a permalinkek elmentése: " + e.getMessage(),
+                        "Hiba", JOptionPane.ERROR_MESSAGE);
+            }
+        } else {
+            log.debug("No need to save permalinks now.");
+        }
     }
 
     private String getProgressBarString(int count) {
