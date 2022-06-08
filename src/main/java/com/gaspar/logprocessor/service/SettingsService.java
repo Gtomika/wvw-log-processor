@@ -90,7 +90,8 @@ public class SettingsService {
         addSetting(Setting.ENGINE_DPS_REPORT_SAVE_PERMALINKS, true);
         addSetting(Setting.ENGINE_ELITE_INSIGHT_PATH, NO_PATH_SET);
         addSetting(Setting.TARGET_FOLDER, NO_PATH_SET);
-        addSetting(Setting.ENGIN_ELITE_INSIGHT_KEEP_BIG_JSON, false);
+        addSetting(Setting.ENGINE_ELITE_INSIGHT_KEEP_BIG_JSON, false);
+        addSetting(Setting.ENGINE_ELITE_INSIGHT_CONF_PATH, NO_PATH_SET);
     }
 
     private void validateSettingsIntegrity() throws SettingsException {
@@ -127,6 +128,10 @@ public class SettingsService {
             case LOCAL_ELITE_INSIGHT:
                 if(getSetting(Setting.ENGINE_ELITE_INSIGHT_PATH, Function.identity()).equals(NO_PATH_SET)) {
                     throw new SettingsException("Nincs beállítva az Elite Insight .exe helye!");
+                }
+                if(getSetting(Setting.ENGINE_ELITE_INSIGHT_CONF_PATH, Function.identity()).equals(NO_PATH_SET)) {
+                    throw new SettingsException("Nincs beállítva az Elite Insight konfigurációs fájl helye! " +
+                            "Válaszd a program mellé adott konfigurációs fájlt!");
                 }
                 break;
             case DPS_REPORT_API:

@@ -106,14 +106,36 @@ public class EnginePanel extends JPanel {
         });
         elInsPanel.add(browse);
 
-        boolean keepBigJson = settingsService.getSetting(Setting.ENGIN_ELITE_INSIGHT_KEEP_BIG_JSON, Boolean::valueOf);
+        boolean keepBigJson = settingsService.getSetting(Setting.ENGINE_ELITE_INSIGHT_KEEP_BIG_JSON, Boolean::valueOf);
         JCheckBox keepBigJsonCheckbox = new JCheckBox("Nem tisztított JSON fájlok megtartása (az eredeti logok mellett lesznek)");
         keepBigJsonCheckbox.setSelected(keepBigJson);
         keepBigJsonCheckbox.addActionListener(e -> {
             log.info("User selected new value for keeping big JSON: {}", keepBigJsonCheckbox.isSelected());
-            settingsService.addSetting(Setting.ENGIN_ELITE_INSIGHT_KEEP_BIG_JSON, keepBigJsonCheckbox.isSelected());
+            settingsService.addSetting(Setting.ENGINE_ELITE_INSIGHT_KEEP_BIG_JSON, keepBigJsonCheckbox.isSelected());
         });
         elInsPanel.add(keepBigJsonCheckbox);
+
+        JLabel labelConf = new JLabel("Mellékelt Elite Insight konfigurációs fájl helye");
+        elInsPanel.add(labelConf);
+
+        String confPath = settingsService.getSetting(Setting.ENGINE_ELITE_INSIGHT_CONF_PATH, Function.identity());
+        JLabel pathLabelConf = new JLabel(confPath);
+        pathLabelConf.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createCompoundBorder(GuiConstants.BORDER_MARGIN, BorderFactory.createLineBorder(Color.black, 1)),
+                GuiConstants.BORDER_MARGIN
+        ));
+        elInsPanel.add(pathLabelConf);
+
+        JButton browseConf = new JButton("Tallózás");
+        browseConf.addActionListener(e -> {
+            String path = PathSelectorUtils.selectEliteInsightConfFile();
+            if(path != null) {
+                log.debug("User selected new path to EliteInsight conf file: {}", path);
+                pathLabelConf.setText(path);
+                settingsService.addSetting(Setting.ENGINE_ELITE_INSIGHT_CONF_PATH, path);
+            }
+        });
+        elInsPanel.add(browseConf);
 
         add(elInsPanel);
     }

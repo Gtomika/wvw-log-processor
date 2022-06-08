@@ -6,7 +6,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
-import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -27,9 +26,14 @@ public class EliteInsightJsonCreatorService {
 
         new Thread(() -> {
             try {
-                Path configPath = new File(EliteInsightJsonCreatorService.class.getProtectionDomain().getCodeSource().getLocation()
-                        .toURI()).toPath();
-                log.debug("Config file is expected at {}", configPath);
+                Path configPath = settingsService.getSetting(Setting.ENGINE_ELITE_INSIGHT_CONF_PATH, Paths::get);
+                boolean configExists = Files.exists(configPath);
+                log.debug("Config file is expected at {}. Exists: {}", configPath, configExists);
+                if(!configExists) {
+                    log.error("Config file is not found at expected place: {}", configPath);
+                    onFail.accept(logFile);
+                    return;
+                }
 
                 Process eliteInsightProcess = new ProcessBuilder(eliteInsightPath.toString(),
                         "-c", configPath.toString(), logFile.toString())
@@ -53,7 +57,7 @@ public class EliteInsightJsonCreatorService {
                 String json = Files.readString(bigJsonPath);
 
                 //delete other files if needed
-                boolean keepBigJson = settingsService.getSetting(Setting.ENGIN_ELITE_INSIGHT_KEEP_BIG_JSON, Boolean::valueOf);
+                boolean keepBigJson = settingsService.getSetting(Setting.ENGINE_ELITE_INSIGHT_KEEP_BIG_JSON, Boolean::valueOf);
                 if(!keepBigJson) {
                     Files.deleteIfExists(bigJsonPath);
                 }

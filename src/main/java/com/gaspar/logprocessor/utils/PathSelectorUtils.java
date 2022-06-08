@@ -51,4 +51,30 @@ public abstract class PathSelectorUtils {
         }
     }
 
+    @Nullable
+    public static String selectEliteInsightConfFile() {
+        JFileChooser fileChooser = new JFileChooser();
+        fileChooser.setDialogTitle("Mellékelt Elite Insight konfiguráció helye");
+        fileChooser.setFileSelectionMode(JFileChooser.FILES_ONLY);
+        fileChooser.setAcceptAllFileFilterUsed(false);
+        fileChooser.setFileFilter(new FileFilter() {
+            @Override
+            public boolean accept(File f) {
+                return f.isDirectory() || f.getName().endsWith(".conf");
+            }
+
+            @Override
+            public String getDescription() {
+                return ".conf";
+            }
+        });
+
+        if (fileChooser.showOpenDialog(null) == JFileChooser.APPROVE_OPTION) {
+            return fileChooser.getSelectedFile().toString();
+        } else {
+            log.debug("User cancelled file chooser.");
+            return null;
+        }
+    }
+
 }

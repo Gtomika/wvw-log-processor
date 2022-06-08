@@ -36,6 +36,7 @@ public class LogProcessorFrame extends JFrame {
 
         add(rootPanel);
 
+        pack();
         setVisible(true);
         log.info("Main window created.");
     }
