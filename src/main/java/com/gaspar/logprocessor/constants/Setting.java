@@ -35,6 +35,11 @@ public enum Setting {
     ENGINE_ELITE_INSIGHT_PATH,
 
     /**
+     * Boolean, A nem tisztított JSON fájlok megtartása.
+     */
+    ENGIN_ELITE_INSIGHT_KEEP_BIG_JSON,
+
+    /**
      * String, path to the folder where results will be placed.
      */
     TARGET_FOLDER,

@@ -106,6 +106,15 @@ public class EnginePanel extends JPanel {
         });
         elInsPanel.add(browse);
 
+        boolean keepBigJson = settingsService.getSetting(Setting.ENGIN_ELITE_INSIGHT_KEEP_BIG_JSON, Boolean::valueOf);
+        JCheckBox keepBigJsonCheckbox = new JCheckBox("Nem tisztított JSON fájlok megtartása (az eredeti logok mellett lesznek)");
+        keepBigJsonCheckbox.setSelected(keepBigJson);
+        keepBigJsonCheckbox.addActionListener(e -> {
+            log.info("User selected new value for keeping big JSON: {}", keepBigJsonCheckbox.isSelected());
+            settingsService.addSetting(Setting.ENGIN_ELITE_INSIGHT_KEEP_BIG_JSON, keepBigJsonCheckbox.isSelected());
+        });
+        elInsPanel.add(keepBigJsonCheckbox);
+
         add(elInsPanel);
     }
 

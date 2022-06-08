@@ -52,17 +52,13 @@ public class JsonService {
     }
 
     public void writeCleanedLogToFile(CleanedWvwLog cleanedWvwLog, Path logFile) throws IOException {
-        String jsonName = fileNameWithoutExtension(logFile.getFileName().toString()) + "_cleaned.json";
+        String jsonName = WvwLogUtils.logNameWithoutExtension(logFile.getFileName().toString()) + "_cleaned.json";
         Path targetFolder = settingsService.getSetting(Setting.TARGET_FOLDER, Paths::get);
         Path cleanedJsonFile = targetFolder.resolve(jsonName);
         Files.deleteIfExists(cleanedJsonFile);
         Files.createFile(cleanedJsonFile);
         Files.writeString(cleanedJsonFile, mapper.writeValueAsString(cleanedWvwLog));
         log.debug("Log {} successfully cleaned and written to file: {}", logFile, cleanedJsonFile);
-    }
-
-    private String fileNameWithoutExtension(String fileName) {
-        return fileName.replaceFirst("[.][^.]+$", "");
     }
 
 }

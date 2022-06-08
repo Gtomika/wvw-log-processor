@@ -34,7 +34,7 @@ public abstract class PathSelectorUtils {
         fileChooser.setFileFilter(new FileFilter() {
             @Override
             public boolean accept(File f) {
-                return f.getName().endsWith(".exe");
+                return f.isDirectory() || f.getName().endsWith(".exe");
             }
 
             @Override

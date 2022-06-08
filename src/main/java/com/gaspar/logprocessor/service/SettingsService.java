@@ -90,6 +90,7 @@ public class SettingsService {
         addSetting(Setting.ENGINE_DPS_REPORT_SAVE_PERMALINKS, true);
         addSetting(Setting.ENGINE_ELITE_INSIGHT_PATH, NO_PATH_SET);
         addSetting(Setting.TARGET_FOLDER, NO_PATH_SET);
+        addSetting(Setting.ENGIN_ELITE_INSIGHT_KEEP_BIG_JSON, false);
     }
 
     private void validateSettingsIntegrity() throws SettingsException {

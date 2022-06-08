@@ -42,4 +42,8 @@ public class WvwLogUtils {
         return enemies;
     }
 
+    public static String logNameWithoutExtension(String logFileName) {
+        return logFileName.replaceFirst("[.][^.]+$", "");
+    }
+
 }
