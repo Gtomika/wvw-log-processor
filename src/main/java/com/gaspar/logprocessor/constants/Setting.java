@@ -18,6 +18,13 @@ public enum Setting {
     SOURCE_LOG_EXTENSIONS,
 
     /**
+     * Integer, minimum size of the logs that should be processed in megabytes. Set to
+     * {@link com.gaspar.logprocessor.service.SettingsService#MIN_SIZE_DISABLED} to disable
+     * any minimum size.
+     */
+    SOURCE_MIN_SIZE_MB,
+
+    /**
      * One of {@link JsonGenerator} constants, which way is to be used to
      * generate JSON from log file.
      */

@@ -27,6 +27,7 @@ import java.util.stream.Collectors;
 public class SettingsService {
 
     public static final String NO_PATH_SET = "Nincs megadva";
+    public static final int MIN_SIZE_DISABLED = -1;
 
     private final Path settingFile = Paths.get(
             FileSystemView.getFileSystemView().getDefaultDirectory().getPath(),
@@ -58,6 +59,8 @@ public class SettingsService {
             validateSettingsIntegrity();
         } catch (SettingsException e) {
             log.error("Settings are in an invalid state!", e);
+            //fall back to defaults
+            addDefaultSettings();
         }
     }
 
@@ -83,6 +86,7 @@ public class SettingsService {
     }
 
     private void addDefaultSettings() {
+        settingsProperties.clear();
         addSetting(Setting.SOURCE_FOLDER, NO_PATH_SET);
         addSetting(Setting.SOURCE_DELETE_SOURCES, false);
         addSetting(Setting.SOURCE_LOG_EXTENSIONS, Set.of(LogExtension.EVTC, LogExtension.ZEVTC));
@@ -92,6 +96,7 @@ public class SettingsService {
         addSetting(Setting.TARGET_FOLDER, NO_PATH_SET);
         addSetting(Setting.ENGINE_ELITE_INSIGHT_KEEP_BIG_JSON, false);
         addSetting(Setting.ENGINE_ELITE_INSIGHT_CONF_PATH, NO_PATH_SET);
+        addSetting(Setting.SOURCE_MIN_SIZE_MB, MIN_SIZE_DISABLED);
     }
 
     private void validateSettingsIntegrity() throws SettingsException {
@@ -116,20 +121,31 @@ public class SettingsService {
 
     public void validateSettings() throws SettingsException {
         //validate source settings
-        if(getSetting(Setting.SOURCE_FOLDER, Function.identity()).equals(NO_PATH_SET)) {
+        if (getSetting(Setting.SOURCE_FOLDER, Function.identity()).equals(NO_PATH_SET)) {
             throw new SettingsException("Nincs beállítva a log fájlok mappája!");
         }
-        if(getSetting(Setting.SOURCE_LOG_EXTENSIONS, EXTENSION_CONVERTER).isEmpty()) {
+        if (getSetting(Setting.SOURCE_LOG_EXTENSIONS, EXTENSION_CONVERTER).isEmpty()) {
             throw new SettingsException("Egy log kiterjesztés sincs bekapcsolva!");
+        }
+        String minSizeString = null;
+        try {
+            minSizeString = getSetting(Setting.SOURCE_MIN_SIZE_MB, Function.identity());
+            int minSize = Integer.parseInt(minSizeString);
+            if(minSize < 1 && minSize != MIN_SIZE_DISABLED) {
+                throw new SettingsException("A megadott minimum méret túl kicsi, legalább 1-nek kell lennie.");
+            }
+        } catch (NumberFormatException e) {
+            log.info("Failed to parse setting SOURCE_MIN_SIZE_KB to integer: {}", minSizeString);
+            throw new SettingsException("A megadott minimum méret nem egy egész szám.");
         }
 
         //validate engine
         switch (getSetting(Setting.ENGINE_JSON_GENERATOR, JsonGenerator::valueOf)) {
             case LOCAL_ELITE_INSIGHT:
-                if(getSetting(Setting.ENGINE_ELITE_INSIGHT_PATH, Function.identity()).equals(NO_PATH_SET)) {
+                if (getSetting(Setting.ENGINE_ELITE_INSIGHT_PATH, Function.identity()).equals(NO_PATH_SET)) {
                     throw new SettingsException("Nincs beállítva az Elite Insight .exe helye!");
                 }
-                if(getSetting(Setting.ENGINE_ELITE_INSIGHT_CONF_PATH, Function.identity()).equals(NO_PATH_SET)) {
+                if (getSetting(Setting.ENGINE_ELITE_INSIGHT_CONF_PATH, Function.identity()).equals(NO_PATH_SET)) {
                     throw new SettingsException("Nincs beállítva az Elite Insight konfigurációs fájl helye! " +
                             "Válaszd a program mellé adott konfigurációs fájlt!");
                 }
@@ -140,7 +156,7 @@ public class SettingsService {
         }
 
         //validate target
-        if(getSetting(Setting.TARGET_FOLDER, Function.identity()).equals(NO_PATH_SET)) {
+        if (getSetting(Setting.TARGET_FOLDER, Function.identity()).equals(NO_PATH_SET)) {
             throw new SettingsException("Nincs beállítva az eredményfájlok mappája!");
         }
     }

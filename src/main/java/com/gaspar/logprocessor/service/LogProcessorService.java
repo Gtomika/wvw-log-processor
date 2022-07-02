@@ -6,7 +6,8 @@ import com.gaspar.logprocessor.constants.LogExtension;
 import com.gaspar.logprocessor.constants.Setting;
 import com.gaspar.logprocessor.exception.SettingsException;
 import com.gaspar.logprocessor.gui.panel.BottomBarPanel;
-import com.gaspar.logprocessor.runnable.LogProcessorRunnable;
+import com.gaspar.logprocessor.model.CleanedWvwLog;
+import com.gaspar.logprocessor.runnable.DpsReportLogProcessorRunnable;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -24,6 +25,8 @@ import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 import java.util.function.Function;
 
 //stateful service!
@@ -33,15 +36,14 @@ import java.util.function.Function;
 public class LogProcessorService {
 
     private final SettingsService settingsService;
-    private final JsonService jsonService;
-    private final BottomBarPanel bottomBarPanel;
-    //to access permalinks (if needed)
     private final DpsReportJsonCreatorService dpsReportJsonCreatorService;
+    private final EliteInsightJsonCreatorService eliteInsightJsonCreatorService;
+    private final BottomBarPanel bottomBarPanel;
 
     private int logAmount;
     private int processedAmount;
     private int failedAmount;
-    private boolean inProgress;
+    private volatile boolean inProgress;
 
     public void processLogs() {
         try {
@@ -80,10 +82,6 @@ public class LogProcessorService {
         log.info("Found {} logs, starting processing...", logAmount);
 
         new Thread(() -> {
-            //launch background threads
-            int numThreads = Math.min(Runtime.getRuntime().availableProcessors(), logAmount);
-            log.info("Will use {} threads to process logs...", numThreads);
-
             bottomBarPanel.getProgressBar().setMinimum(0);
             bottomBarPanel.getProgressBar().setMaximum(logAmount);
             bottomBarPanel.getProgressBar().setValue(0);
@@ -91,42 +89,98 @@ public class LogProcessorService {
 
             processedAmount = 0;
             failedAmount = 0;
-            ExecutorService executor = Executors.newFixedThreadPool(numThreads);
-            for(Path logFile: logs) {
-                var task = new LogProcessorRunnable(logFile, this, jsonService);
-                executor.execute(task);
-            }
 
-            executor.shutdown();
-            boolean finished = false;
-            try {
-                finished = executor.awaitTermination(1, TimeUnit.DAYS);
-            } catch (InterruptedException e) {
-                log.error("Interrupted", e);
-            }
-            if(finished) {
-                SwingUtilities.invokeLater(() -> {
-                    bottomBarPanel.getProgressBar().setValue(0);
-                    bottomBarPanel.getProgressBar().setString("Nincs aktív feldolgozás");
-                });
-                onAllTasksFinished();
-            } else {
-                log.warn("Executor failed to finish in time!");
-                throw new RuntimeException("Executor timed out.");
+            JsonGenerator generator = settingsService.getSetting(Setting.ENGINE_JSON_GENERATOR, JsonGenerator::valueOf);
+            switch (generator) {
+                case DPS_REPORT_API:
+                    log.debug("Selected log processing method is dps.report API");
+                    processFilesWithDpsReport(logs);
+                    break;
+                case LOCAL_ELITE_INSIGHT:
+                    log.debug("Selected log processing method is local Elite Insight parser.");
+                    processFilesWithLocalEliteInsight(logs);
             }
         }).start();
+    }
+
+    private void processFilesWithDpsReport(List<Path> logFiles) {
+        //launch background threads
+        int numThreads = Math.min(Runtime.getRuntime().availableProcessors(), logAmount);
+        log.info("Will use {} threads to process logs...", numThreads);
+
+        ExecutorService executor = Executors.newFixedThreadPool(numThreads);
+        for(Path logFile: logFiles) {
+            var task = new DpsReportLogProcessorRunnable(logFile, this, dpsReportJsonCreatorService);
+            executor.execute(task);
+        }
+
+        executor.shutdown();
+        boolean finished = false;
+        try {
+            finished = executor.awaitTermination(1, TimeUnit.DAYS);
+        } catch (InterruptedException e) {
+            log.error("Interrupted", e);
+        }
+        if(finished) {
+            SwingUtilities.invokeLater(() -> {
+                bottomBarPanel.getProgressBar().setValue(0);
+                bottomBarPanel.getProgressBar().setString("Nincs aktív feldolgozás");
+            });
+            onAllTasksFinished();
+        } else {
+            log.warn("Executor failed to finish in time!");
+            throw new RuntimeException("Executor timed out.");
+        }
+    }
+
+    private void processFilesWithLocalEliteInsight(List<Path> logFiles) {
+        Consumer<List<String>> onSuccess = (jsons) -> {
+            if(jsons.size() != logFiles.size()) {
+                log.error("Incorrect number of JSON strings returned ({}), expected {}", jsons.size(), logFiles.size());
+                onAllTasksFinished();
+                return;
+            }
+            processedAmount = logAmount;
+            failedAmount = 0;
+            log.debug("Successful processing of all logs with local Elite insight parser");
+            for(int i = 0; i < jsons.size(); i++) {
+                Path logPath = logFiles.get(i);
+                String json = jsons.get(i);
+                try {
+                    log.debug("Cleaning and writing to file the following log: {}", logPath);
+                    CleanedWvwLog cleanedWvwLog = eliteInsightJsonCreatorService.cleanJson(json, logPath);
+                    eliteInsightJsonCreatorService.writeCleanedLogToFile(cleanedWvwLog, logPath);
+                } catch (Exception e) {
+                    log.error("Failed to process log file: {}", logPath, e);
+                }
+            }
+            onAllTasksFinished();
+        };
+        Runnable onFail = () -> {
+            log.error("Failed to process log files with local Elite Insight parser");
+            onAllTasksFinished();
+        };
+        eliteInsightJsonCreatorService.getLogJsonFromEliteInsight(logFiles, onSuccess, onFail);
     }
 
     private List<Path> listLogFiles() throws IOException {
         var logFilesList = new ArrayList<Path>();
         String sourceFolder = settingsService.getSetting(Setting.SOURCE_FOLDER, Function.identity());
         Set<LogExtension> extensions = settingsService.getSetting(Setting.SOURCE_LOG_EXTENSIONS, SettingsService.EXTENSION_CONVERTER);
+        int minSizeOriginal = settingsService.getSetting(Setting.SOURCE_MIN_SIZE_MB, Integer::parseInt);
+        int minSize = minSizeOriginal * 1024 * 1024; //to bytes
 
         try (DirectoryStream<Path> stream = Files.newDirectoryStream(Paths.get(sourceFolder))) {
             for (Path path : stream) {
                 if (isLogFile(path, extensions)) {
                     log.debug("Found log file: {}", path);
-                    logFilesList.add(path);
+                    long logfileSize = Files.size(path);
+                    if(minSizeOriginal == SettingsService.MIN_SIZE_DISABLED || logfileSize >= minSize) {
+                        logFilesList.add(path);
+                        log.debug("Log file of acceptable size, will be processed.");
+                    } else {
+                        log.debug("Log file is not of accepted size, will be ignored.");
+                    }
                 }
             }
         }
@@ -164,8 +218,6 @@ public class LogProcessorService {
     }
 
     private void onAllTasksFinished() {
-        log.info("All threads finished, executor stopped.");
-
         writePermalinksIfNeeded();
 
         final JDialog resultDialog = new JDialog();

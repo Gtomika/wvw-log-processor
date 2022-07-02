@@ -11,8 +11,11 @@ import org.springframework.stereotype.Component;
 
 import javax.annotation.PostConstruct;
 import javax.swing.*;
+import javax.swing.event.DocumentEvent;
+import javax.swing.event.DocumentListener;
+import javax.swing.text.BadLocationException;
+import javax.swing.text.Document;
 import java.awt.*;
-import java.io.File;
 import java.io.IOException;
 import java.util.function.Function;
 
@@ -32,6 +35,8 @@ public class SourcePanel extends JPanel {
         addDeleteSourcesCheckbox();
         separator();
         addExtensionSelectors();
+        separator();
+        addMinSizeSelector();
     }
 
     private void separator() {
@@ -124,6 +129,42 @@ public class SourcePanel extends JPanel {
             checkBox.setSelected(initSelectedExtensions.contains(extension));
             add(checkBox);
         }
+    }
+
+    private void addMinSizeSelector() {
+        String minSize = settingsService.getSetting(Setting.SOURCE_MIN_SIZE_MB, Function.identity());
+        JPanel panel = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        panel.setAlignmentX(JComponent.LEFT_ALIGNMENT);
+        JLabel label = new JLabel("Minimális log méret (mB), \"-1\" esetén nincs minimális méret.");
+        JTextField field = new JTextField(minSize);
+        field.setEditable(true);
+        field.setPreferredSize(new Dimension(50, 20));
+        field.getDocument().addDocumentListener(new DocumentListener() {
+            @Override
+            public void insertUpdate(DocumentEvent e) {
+                save(e.getDocument());
+            }
+            @Override
+            public void removeUpdate(DocumentEvent e) {
+                save(e.getDocument());
+            }
+            @Override
+            public void changedUpdate(DocumentEvent e) {
+                save(e.getDocument());
+            }
+
+            private void save(Document document) {
+                try {
+                    String text = document.getText(0, document.getLength());
+                    settingsService.addSetting(Setting.SOURCE_MIN_SIZE_MB, text);
+                } catch (BadLocationException e) {
+                    log.error("Error, bad location for getting text from document", e);
+                }
+            }
+        });
+        panel.add(label);
+        panel.add(field);
+        add(panel);
     }
 
 }

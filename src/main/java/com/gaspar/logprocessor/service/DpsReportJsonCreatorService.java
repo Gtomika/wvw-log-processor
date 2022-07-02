@@ -3,7 +3,6 @@ package com.gaspar.logprocessor.service;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.gaspar.logprocessor.model.UploadContentResponse;
 import lombok.Getter;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import okhttp3.*;
 import org.jetbrains.annotations.NotNull;
@@ -20,11 +19,9 @@ import java.util.function.Consumer;
 
 @Service
 @Slf4j
-@RequiredArgsConstructor
-public class DpsReportJsonCreatorService {
+public class DpsReportJsonCreatorService extends AbstractJsonService {
 
     private final OkHttpClient client;
-    private final ObjectMapper mapper;
 
     @Value("${dps.report.api}")
     private String dpsReportApi;
@@ -32,6 +29,17 @@ public class DpsReportJsonCreatorService {
     //stateful service
     @Getter
     private final List<String> permalinks = new ArrayList<>();
+
+    public DpsReportJsonCreatorService(ObjectMapper mapper, SettingsService settingsService, OkHttpClient client) {
+        super(mapper, settingsService);
+        this.client = client;
+    }
+
+    //async
+    public void generateJsonAsync(Path logFile, BiConsumer<String, Path> onSuccess, Consumer<Path> onFail) {
+        log.debug("Getting JSON from dps.report API: {}", logFile);
+        uploadLogToDpsReport(logFile, onSuccess, onFail);
+    }
 
     //must upload log first, then JSON will be generated
     //async
